@@ -12,7 +12,7 @@ jobs:
       contents: read
     defaults:
       run:
-        working-directory: PulsatioStethoAndroid
+        working-directory: PulsatioStethoAndroid/PulsatioStethoAndroid
 
     steps:
       - name: Checkout source
@@ -42,6 +42,6 @@ jobs:
       - name: Upload debug APK
         uses: actions/upload-artifact@v4
         with:
-          name: PulsatioStetho-APK
-          path: PulsatioStethoAndroid/app/build/outputs/apk/debug/app-debug.apk
+          name: PulsatioStetho-v0.2-APK
+          path: PulsatioStethoAndroid/PulsatioStethoAndroid/app/build/outputs/apk/debug/app-debug.apk
           if-no-files-found: error
