@@ -1,80 +1,93 @@
-# Pulsatio Stetho – Android uygulaması
+# Pulsatio Stetho 0.2 – Android uygulaması
 
-ESP32-S3 steteskoptan BLE ile sesi alır, telefonda (hoparlör, kablolu veya
-Bluetooth kulaklık) çalar, dalga formunu gösterir ve WAV kaydeder.
+ESP32-S3 dijital steteskop için muayene uygulaması: hasta kaydı → odak noktalarında
+kayıt → otomatik analiz → sonuç, dinleme ve dışa aktarma.
 
-- Android 10 ve üzeri
+- Android 10 ve üzeri, telefon ve tablet (dikey/yatay)
 - Harici kütüphane yok (sadece Android SDK + Kotlin)
-- ESP tarafında değişiklik gerekmez (aynı GATT servisi ve paket formatı)
+- ESP tarafında değişiklik gerekmez (v2 firmware, aynı GATT servisi)
+
+> Prototip / mühendislik sürümüdür; tanı aracı değildir.
 
 ---
 
-## 1. Yol: GitHub ile APK al (bilgisayara bir şey kurmadan)
+## Akış
 
-1. github.com'da ücretsiz hesap açın (varsa giriş yapın).
-2. Sağ üstte **+ → New repository**. Ad: `PulsatioStethoAndroid`. **Private** seçebilirsiniz. **Create repository**.
-3. Açılan sayfada **uploading an existing file** bağlantısına tıklayın.
-4. Bu klasörün **içindeki her şeyi** (app, gradle, .github, gradlew, build.gradle.kts …)
-   sürükleyip bırakın. `.github` klasörü gizli olabilir: Windows Gezgini'nde
-   *Görünüm → Gizli öğeler* açın. **Commit changes**.
-5. Üstteki **Actions** sekmesine gidin. "APK derle" işi otomatik başlar
-   (başlamazsa *APK derle → Run workflow*). 3–5 dakika sürer.
-6. Yeşil tik çıkınca işe tıklayın, en altta **Artifacts → PulsatioStetho-apk**.
-   İnen zip'in içinde `app-debug.apk` var.
-7. APK'yı telefona atın (USB, Drive, e-posta…) ve **3. adım**a geçin.
+1. **Ana sayfa** – cihaz durumu, *Yeni muayene*, son muayeneler, günlük özet
+2. **Hasta** – Hasta ID (zorunlu), ad, yaş, cinsiyet, not; son hastalardan hızlı seçim
+3. **Kayıt** – gövde haritasında **Aort, Pulmoner, Erb, Triküspit, Mitral** noktaları.
+   Noktayı seçin, kayıt düğmesine basın; 10/15/30 sn sonra kayıt kendiliğinden durur,
+   analiz edilir, nokta ✓ ile işaretlenir ve sıradaki noktaya geçilir.
+   Canlı dalga formu ve nabızla atan kalp göstergesi vardır.
+4. **Sonuç** – genel nabız, ritim, sinyal kalitesi; bulgu göstergeleri; her nokta için
+   S1/S2 işaretli dalga formu (parmakla kaydırılır), sistol/diyastol süreleri,
+   kaydı **dinleme** ve **paylaşma** (WAV + rapor.json + rapor.txt).
 
-## 2. Yol: Android Studio ile
+Alt menü: **Ana sayfa · Kayıtlar** (ID/ad ile arama) **· Cihaz** (debug).
 
-1. https://developer.android.com/studio adresinden Android Studio'yu kurun.
-2. **File → Open** → bu klasörü (`PulsatioStethoAndroid`) seçin.
-   İlk açılışta Gradle eşitlemesi gerekli SDK'yı indirir (birkaç dakika).
-3. İki seçenek:
-   - **Doğrudan telefona yükle:** Telefonda *Geliştirici seçenekleri → USB hata ayıklama*
-     açık olsun (Ayarlar → Telefon hakkında → *Yapı numarası*na 7 kez dokunun).
-     USB ile bağlayın, üstte telefonunuzu seçip yeşil ▶ **Run**'a basın.
-   - **APK üret:** *Build → Build App Bundle(s)/APK(s) → Build APK(s)*.
-     Dosya: `app/build/outputs/apk/debug/app-debug.apk`
+**Cihaz sayfası:** bağlantı ve MTU, canlı paket istatistikleri, test dinleme,
+ESP ayarları (mod, Comfort/Diagnostic, BLE kaynağı Ham/İşlenmiş/Odaklı, kulaklık odağı
+S1…Diyastol), telefon ses kazancı, hoparlör modu, sensör kanalları (PCG aktif,
+EKG/SpO₂ ileride), kayıt defteri ve ESP durum satırı.
 
-## 3. Telefona kurulum
+## Analiz neleri ölçer?
 
-1. APK dosyasına dokunun.
-2. "Bilinmeyen kaynaklardan yükleme" uyarısı çıkarsa, açtığınız uygulamaya
-   (Dosyalar / Chrome / Drive) izin verin.
-3. Play Protect "tanınmayan uygulama" derse **Yine de yükle**. (İmzasız
-   hata ayıklama sürümü olduğu için normaldir.)
+| Ölçüm | Yöntem |
+|---|---|
+| Nabız | 25–400 Hz zarfının otokorelasyonu + atım takibi |
+| Ritim | Ardışık atım aralıklarının değişim katsayısı (<%8 düzenli) |
+| S1 / S2, sistol, diyastol | Nabza göre beklenen sistol süresi (≈ 500 − 2,1×nabız ms) civarında ikinci ses |
+| Sinyal kalitesi (0–100) | Periyodiklik, kapsanan döngü oranı, kırpılma, BLE kaybı |
+| Yüksek frekans göstergesi | Sistol/diyastolde 150–400 Hz enerjisi (gürültü tabanı çıkarılmış) / S1 enerjisi |
 
-## Arayüz
+Test: 11 Ekim kaydında nabız 95, ritim düzenli, sistol 270 ms, diyastol 360 ms, uyarı yok.
+Sentetik sistolik/diyastolik üfürüm eklenen kayıtlarda gösterge doğru bölümde tetiklendi.
 
-- **Telefon (dikey):** tek sütun – üstte bağlantı durumu, büyük *Dinlemeye başla* düğmesi,
-  dalga formu + tahmini nabız, kayıt, ardından mod / profil / ses kartları.
-- **Tablet veya yatay ekran:** iki sütun – solda kontroller, sağda büyük dalga formu.
-- Ekranı döndürmek bağlantıyı ve sesi **kesmez**.
-- Seçili mod/profil vurgulu görünür; bağlanınca uygulamadaki seçimler ESP'ye gönderilir.
-- Bağlantı koparsa uygulama **kendiliğinden yeniden bağlanır** ve dinlemeye devam eder.
-- Kayıt düğmesinde geçen süre görünür. Ayrıntılar bölümünde kayıt defteri ve ESP durumu var.
-- Nabız tahmini ~6 saniye sinyalden sonra çıkar (sinyal güvenilir değilse "--").
-  Sadece yaklaşık bir göstergedir.
+## Veriler nerede?
 
-## 4. Kullanım
+- Uygulama içi: muayeneler uygulamanın kendi klasöründe (`session.json` + WAV).
+  Uygulama kaldırılırsa silinir.
+- **Paylaş** düğmesi: `Download/Pulsatio/<HastaID>_<tarih>/` klasörüne
+  WAV dosyaları, `rapor.json` ve `rapor.txt` kopyalanır ve paylaşma menüsü açılır.
+  WAV'lar PC'deki HSMM raporlayıcısıyla doğrudan analiz edilebilir.
+- `session.json` biçimi kanal tabanlıdır (`"channels": ["PCG"]`); EKG eklendiğinde
+  aynı muayeneye `ECG` kanalı olarak girer.
 
-1. **PC'deki Python uygulamasını kapatın.** ESP aynı anda tek bağlantı kabul eder.
-2. Uygulamayı açın, **Yakındaki cihazlar** iznini verin.
-   (Android 10–11'de konum izni istenir ve **Konum** açık olmalıdır.)
-3. **Bağlan** → log'da `MTU = 517 (240 örnekli paket)` görünmeli.
-4. **Başlat** → ses gelir. Durum satırında `kayıp %` 0'a yakın olmalı.
-5. **Ses** kaydırıcısı ile seviye, kulaklıkta **Hoparlör modu** kapalı;
-   telefon hoparlöründe açık (kalp sesi 30–150 Hz'de, sanal bas onu duyulur yapar).
-6. **Kaydet** → `Download/Pulsatio/stetho_YYYYMMDD_HHMMSS.wav`
-   Bu dosyalar PC'deki HSMM raporlayıcısıyla doğrudan analiz edilebilir.
+---
+
+## APK alma
+
+### 1. Yol: GitHub (bilgisayara bir şey kurmadan)
+
+1. GitHub'da yeni repo (Private olabilir) → **uploading an existing file**.
+2. Bu klasörün **içindeki her şeyi** yükleyin (`.github` gizli olabilir: Windows Gezgini →
+   *Görünüm → Gizli öğeler*). Eski sürümü yüklediyseniz üzerine yazın.
+   **Not:** Eski `WaveformView.kt` dosyası artık yok; repoda kaldıysa silin.
+3. **Actions** sekmesi → "APK derle" (3–5 dk) → **Artifacts → PulsatioStetho-apk**.
+
+### 2. Yol: Android Studio
+
+**File → Open** → klasör → telefonda USB hata ayıklama açık → ▶ **Run**.
+
+## Telefona kurulum
+
+APK'ya dokunun → bilinmeyen kaynak iznini verin → Play Protect uyarısında **Yine de yükle**.
+Eski sürümün üzerine kurulabilir.
+
+## İlk kullanım
+
+1. PC'deki Python uygulamasını kapatın (ESP tek bağlantı kabul eder).
+2. **Yakındaki cihazlar** iznini verin (Android 10–11: konum izni ve Konum açık).
+3. Ana sayfada **Bağlan** → "Bağlı · MTU 517" görünmeli.
+4. **Yeni muayene** → Hasta ID → **Kayda başla**.
 
 ## Sorun giderme
 
 | Belirti | Çözüm |
 |---|---|
-| "Cihaz bulunamadı" | ESP açık mı? PC uygulaması bağlı kalmış olabilir, ESP'yi resetleyin |
-| Bağlanıp hemen kopuyor (status 133) | Bluetooth'u kapatıp açın, tekrar deneyin |
-| MTU 23 kalıyor | Log'da "MTU isteği gönderilemedi" var mı bakın; ESP seri monitöründe `MTU changed:` satırını kontrol edin. ESP'de `NimBLEDevice::setMTU(517)` olmalı |
-| Kayıp yüksek | Telefonu ESP'ye yaklaştırın; ESP seri monitöründe `fail`/`fifoDrop` |
-| Ses yok ama "giriş" dBFS değişiyor | Ses seviyesini artırın, Hoparlör modunu açın |
-
-Bu uygulama prototip/mühendislik amaçlıdır; klinik tanı aracı değildir.
+| Bağlanıyor… kalıyor | ESP açık mı, PC uygulaması bağlı mı? ESP'yi resetleyin |
+| MTU 23 / "(düşük)" | Cihaz sayfası → kayıt defterinde "MTU" satırları; ESP'de `setMTU(517)` |
+| Kalite "Zayıf" | Göğüs başlığını sabit ve tam temaslı tutun, konuşmayın, tekrar kaydedin |
+| Kırpılma uyarısı | Cihaz sayfasında Diagnostic profil / ESP kazancını azaltın |
+| Telefon hoparlöründe ses zayıf | Cihaz → Hoparlör modu açık, kazancı artırın; en iyisi kulaklık |
+| Derleme hatası | Actions log'unu (kırmızı adım) kopyalayıp gönderin |
